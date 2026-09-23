@@ -4,8 +4,8 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>com.example.station</groupId>
-    <artifactId>station-dispense-service</artifactId>
+    <groupId>com.example.service</groupId>
+    <artifactId>core-transaction-service</artifactId>
     <version>1.1.0</version>
     <packaging>jar</packaging>
 
@@ -17,6 +17,7 @@
     </properties>
 
     <dependencies>
+        <!-- JUnit 5 Testing Framework -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-api</artifactId>
