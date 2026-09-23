@@ -23,42 +23,58 @@ jobs:
           java-version: '17'
           cache: 'maven'
 
-      - name: Run Maven Build, Unit Tests & Static Analysis
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install Python Report Generator Dependencies
+        run: pip install python-docx
+
+      - name: Run Maven Build & Unit Tests
         run: mvn clean verify spotbugs:spotbugs
+
+      - name: Generate Formatted Word Unit Test Report
+        run: python3 generate_report.py
 
       - name: Organize Verification Artifacts
         run: |
+          mkdir -p verification-bundle/word-compliance-reports
           mkdir -p verification-bundle/junit-xml-results
           mkdir -p verification-bundle/jacoco-coverage-report
           mkdir -p verification-bundle/static-analysis
           mkdir -p verification-bundle/sbom
           mkdir -p verification-bundle/binaries
 
-          # 1. Copy raw JUnit XML result files
+          # 1. Copy the formatted Word report
+          cp Unit-Test-Report.docx verification-bundle/word-compliance-reports/ 2>/dev/null || true
+
+          # 2. Copy raw JUnit XML result files
           cp target/surefire-reports/*.xml verification-bundle/junit-xml-results/ 2>/dev/null || true
 
-          # 2. Copy JaCoCo HTML & XML code coverage report
+          # 3. Copy JaCoCo HTML & XML code coverage report
           cp -r target/site/jacoco/* verification-bundle/jacoco-coverage-report/ 2>/dev/null || true
 
-          # 3. Copy SpotBugs static analysis report
+          # 4. Copy SpotBugs static analysis report
           cp target/spotbugsXml.xml verification-bundle/static-analysis/ 2>/dev/null || true
 
-          # 4. Copy CycloneDX Software Bill of Materials (SBOM)
+          # 5. Copy CycloneDX Software Bill of Materials (SBOM)
           cp target/bom.json verification-bundle/sbom/ 2>/dev/null || true
           cp target/bom.xml verification-bundle/sbom/ 2>/dev/null || true
 
-          # 5. Copy Compiled JAR Binary
+          # 6. Copy Compiled JAR Binary
           cp target/*.jar verification-bundle/binaries/ 2>/dev/null || true
 
       - name: Package Audit Bundle
         run: |
           python3 -c "import shutil; shutil.make_archive('Verification-Package-${{ github.ref_name || 'manual' }}', 'zip', 'verification-bundle')"
 
-      - name: Attach Verification Package to Release
+      - name: Attach Assets to GitHub Release
         if: github.event_name == 'release'
         uses: softprops/action-gh-release@v2
         with:
           files: |
+            Unit-Test-Report.docx
             Verification-Package-*.zip
             target/*.jar
         env:
