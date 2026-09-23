@@ -1,4 +1,4 @@
-name: Automated Compliance Release Archive
+name: Build, Test & Compliance Release Archive
 
 on:
   release:
@@ -16,34 +16,50 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Generate Verification Evidence & Quality Reports
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'maven'
+
+      - name: Run Maven Build, Unit Tests & Static Analysis
+        run: mvn clean verify spotbugs:spotbugs
+
+      - name: Organize Verification Artifacts
         run: |
-          mkdir -p compliance-reports
-          echo "=== Unit Test Verification Log ===" > compliance-reports/unit-test-results.txt
-          echo "Automated Test Suite Verification: PASSED" >> compliance-reports/unit-test-results.txt
-          echo "Timestamp: $(date -u)" >> compliance-reports/unit-test-results.txt
-          echo "Total Tests: 142 | Passed: 142 | Failed: 0" >> compliance-reports/unit-test-results.txt
-          
-          echo "=== Static Code Quality Gate Summary ===" > compliance-reports/code-quality-report.txt
-          echo "Quality Gate: PASSED | Coverage: 88.5% | Bugs: 0 | Vulnerabilities: 0" >> compliance-reports/code-quality-report.txt
-          
-          echo "=== Dependency & Security Vulnerability Scan ===" > compliance-reports/security-scan.txt
-          echo "Critical Vulnerabilities: 0 | High Vulnerabilities: 0" >> compliance-reports/security-scan.txt
+          mkdir -p verification-bundle/junit-xml-results
+          mkdir -p verification-bundle/jacoco-coverage-report
+          mkdir -p verification-bundle/static-analysis
+          mkdir -p verification-bundle/sbom
+          mkdir -p verification-bundle/binaries
+
+          # 1. Copy raw JUnit XML result files
+          cp target/surefire-reports/*.xml verification-bundle/junit-xml-results/ 2>/dev/null || true
+
+          # 2. Copy JaCoCo HTML & XML code coverage report
+          cp -r target/site/jacoco/* verification-bundle/jacoco-coverage-report/ 2>/dev/null || true
+
+          # 3. Copy SpotBugs static analysis report
+          cp target/spotbugsXml.xml verification-bundle/static-analysis/ 2>/dev/null || true
+
+          # 4. Copy CycloneDX Software Bill of Materials (SBOM)
+          cp target/bom.json verification-bundle/sbom/ 2>/dev/null || true
+          cp target/bom.xml verification-bundle/sbom/ 2>/dev/null || true
+
+          # 5. Copy Compiled JAR Binary
+          cp target/*.jar verification-bundle/binaries/ 2>/dev/null || true
 
       - name: Package Audit Bundle
         run: |
-          python3 -c "import shutil; shutil.make_archive('Verification-Audit-Package-${{ github.ref_name || 'manual-test' }}', 'zip', 'compliance-reports')"
+          python3 -c "import shutil; shutil.make_archive('Verification-Package-${{ github.ref_name || 'manual' }}', 'zip', 'verification-bundle')"
 
-      - name: Upload to GitHub Release Assets
+      - name: Attach Verification Package to Release
         if: github.event_name == 'release'
         uses: softprops/action-gh-release@v2
         with:
-          files: Verification-Audit-Package-*.zip
+          files: |
+            Verification-Package-*.zip
+            target/*.jar
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload Pipeline Artifact (Backup)
-        uses: actions/upload-artifact@v4
-        with:
-          name: Verification-Audit-Package
-          path: Verification-Audit-Package-*.zip
