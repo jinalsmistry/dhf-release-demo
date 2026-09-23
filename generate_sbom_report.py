@@ -204,4 +204,4 @@ def create_sbom_excel_from_scratch(
             max_len = max(len(str(cell.value or '')) for cell in col)
 
 if __name__ == "__main__":
-    generate_sbom_excel()
+    create_sbom_excel_from_scratch()
